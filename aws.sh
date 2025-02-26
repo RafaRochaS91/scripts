@@ -1,8 +1,58 @@
 #!/bin/bash
 
-# Get the directory where the script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-CONFIG_FILE="$SCRIPT_DIR/aws-config.json"
+# Function to find the configuration file
+find_config_file() {
+    # First, check if CONFIG_PATH environment variable is set
+    if [ -n "$CONFIG_PATH" ] && [ -f "$CONFIG_PATH" ]; then
+        echo "$CONFIG_PATH"
+        return 0
+    fi
+
+    # Define possible locations for the config file
+    local script_path
+    local real_script_path
+    local possible_locations=()
+
+    # Get the directory where the script is located (works for direct calls)
+    script_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    possible_locations+=("$script_path/aws-config.json")
+    
+    # If script is symlinked, get the real script path
+    if [ -L "${BASH_SOURCE[0]}" ]; then
+        real_script_path="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+        possible_locations+=("$real_script_path/aws-config.json")
+    fi
+    
+    # Check user's home directory
+    possible_locations+=("$HOME/.aws-config.json")
+    possible_locations+=("$HOME/.config/aws-env/aws-config.json")
+    
+    # Check current directory
+    possible_locations+=("$(pwd)/aws-config.json")
+    
+    # Try each possible location
+    for location in "${possible_locations[@]}"; do
+        if [ -f "$location" ]; then
+            echo "$location"
+            return 0
+        fi
+    done
+    
+    # If config file doesn't exist in any of the possible locations,
+    # return the preferred location for creating a new one
+    if [ -L "${BASH_SOURCE[0]}" ] && [ -n "$real_script_path" ]; then
+        echo "$real_script_path/aws-config.json"
+    else
+        echo "$script_path/aws-config.json"
+    fi
+    
+    return 1
+}
+
+# Find config file
+CONFIG_FILE=$(find_config_file)
+CONFIG_FILE_EXISTS=false
+[ -f "$CONFIG_FILE" ] && CONFIG_FILE_EXISTS=true
 
 # Function to display help information
 display_help() {
@@ -19,24 +69,34 @@ display_help() {
     echo "Environments:"
     
     # Check if jq is installed and config file exists before trying to list environments
-    if command -v jq &> /dev/null && [ -f "$CONFIG_FILE" ]; then
+    if command -v jq &> /dev/null && $CONFIG_FILE_EXISTS; then
         echo "  $(jq -r '.environments | keys | join(", ")' "$CONFIG_FILE")"
     else
         echo "  Unable to list environments (jq not installed or config file not found)"
     fi
     
     echo ""
+    echo "Configuration:"
+    echo "  Current config file location: $CONFIG_FILE"
+    echo "  Config file exists: $CONFIG_FILE_EXISTS"
+    echo ""
+    echo "Environment Variables:"
+    echo "  CONFIG_PATH     Set this to specify a custom config file location"
+    echo ""
     echo "Examples:"
     echo "  $(basename "$0")           # Set region for dev environment"
     echo "  $(basename "$0") staging   # Set region for staging environment"
     echo "  $(basename "$0") info      # Show current configuration"
     echo "  $(basename "$0") setup     # Run interactive setup"
+    echo "  CONFIG_PATH=/path/to/config.json $(basename "$0")  # Use custom config file"
 }
 
 # Function to run interactive setup
 run_setup() {
     echo "AWS Environment Region Configurator Setup"
     echo "----------------------------------------"
+    echo "Config file will be created at: $CONFIG_FILE"
+    echo ""
     
     # Check if jq is installed
     if ! command -v jq &> /dev/null; then
@@ -45,11 +105,14 @@ run_setup() {
         exit 1
     fi
     
+    # Create config directory if it doesn't exist
+    mkdir -p "$(dirname "$CONFIG_FILE")"
+    
     # Initialize JSON structure
     JSON_CONTENT='{"environments":{}}'
     
     # Load existing config if it exists
-    if [ -f "$CONFIG_FILE" ]; then
+    if $CONFIG_FILE_EXISTS; then
         echo "Existing configuration found. You can update or add new environment mappings."
         JSON_CONTENT=$(cat "$CONFIG_FILE")
     else
@@ -62,7 +125,7 @@ run_setup() {
         local region=""
         
         # Get current region for this environment if it exists
-        if [ -f "$CONFIG_FILE" ]; then
+        if $CONFIG_FILE_EXISTS; then
             current_region=$(jq -r ".environments.\"$env\"" "$CONFIG_FILE" 2>/dev/null)
             if [ "$current_region" != "null" ] && [ -n "$current_region" ]; then
                 echo "Current region for '$env' is '$current_region'"
@@ -92,7 +155,7 @@ run_setup() {
     }
     
     # Add default environments if new setup
-    if [ ! -f "$CONFIG_FILE" ]; then
+    if ! $CONFIG_FILE_EXISTS; then
         echo "Setting up default environments (dev, staging, prod)..."
         add_environment "dev"
         add_environment "staging"
@@ -144,7 +207,7 @@ if [ "$1" == "setup" ]; then
 fi
 
 # Check if config file exists and prompt for setup if it doesn't
-if [ ! -f "$CONFIG_FILE" ]; then
+if ! $CONFIG_FILE_EXISTS; then
     echo "Configuration file not found at $CONFIG_FILE"
     read -p "Would you like to run the setup now? (y/n): " run_setup_now
     if [[ $run_setup_now =~ ^[Yy]$ ]]; then
