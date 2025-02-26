@@ -58,23 +58,60 @@ A simple bash script to configure AWS CLI region based on environment (dev, stag
 
 #### What it does
 
-This script sets the AWS region for your AWS CLI configuration based on a specified environment:
+This script sets the AWS region for your AWS CLI configuration based on a specified environment.
+The environment-to-region mappings are stored in a JSON configuration file (`aws-config.json`).
 
+Currently configured mappings:
 - **dev**: Sets region to `eu-west-2` (London)
 - **staging**: Sets region to `eu-west-1` (Ireland)
 - **prod**: Sets region to `eu-central-1` (Frankfurt)
 
-#### Usage
+#### Dependencies
 
-```bash
-# Run with default environment (dev)
-./aws.sh
+This script requires the `jq` command-line JSON processor. If not installed, the script will prompt you with installation instructions.
 
-# Explicitly specify environment
-./aws.sh dev
-./aws.sh staging
-./aws.sh prod
+To install jq:
+- On macOS: `brew install jq`
+- On Ubuntu/Debian: `sudo apt install jq`
+- Other systems: Visit https://stedolan.github.io/jq/download/
+
+#### Configuration
+
+The environment-to-region mappings are stored in `aws-config.json` in the following format:
+
+```json
+{
+  "environments": {
+    "dev": "eu-west-2",
+    "staging": "eu-west-1", 
+    "prod": "eu-central-1"
+  }
+}
 ```
+
+To add or modify environment mappings, simply edit this JSON file.
+
+#### Commands
+
+The script supports the following commands:
+
+- **`<environment>`**: Set AWS region based on environment (default: dev)
+  ```bash
+  ./aws.sh dev       # Set region to eu-west-2
+  ./aws.sh staging   # Set region to eu-west-1
+  ./aws.sh prod      # Set region to eu-central-1
+  ```
+
+- **`info`**: Display environment to region mappings and current configuration
+  ```bash
+  ./aws.sh info      # Show mappings and current region setting
+  ```
+
+- **`-h, --help`**: Display help message
+  ```bash
+  ./aws.sh -h        # Show help information
+  ./aws.sh --help    # Show help information
+  ```
 
 #### Global Installation Example
 
@@ -82,11 +119,20 @@ To make this script available globally as `aws-env`:
 
 ```bash
 sudo ln -s "$(pwd)/aws.sh" /usr/local/bin/aws-env
+sudo ln -s "$(pwd)/aws-config.json" "$(dirname "$(which aws-env)")/aws-config.json"
+```
+
+Alternatively, if you prefer to keep the config file in its original location:
+
+```bash
+sudo ln -s "$(pwd)/aws.sh" /usr/local/bin/aws-env
 ```
 
 After installation, you can use it from anywhere:
 ```bash
-aws-env [environment]
+aws-env [environment]   # Set region for specified environment
+aws-env info            # Show mappings and current region
+aws-env -h              # Show help information
 ```
 
 The script will display a confirmation message showing the region that was set.
