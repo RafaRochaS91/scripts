@@ -1,7 +1,7 @@
 {
   "environments": {
     "dev": "eu-west-2",
-    "staging": "eu-west-1",
+    "staging": "eu-west-1", 
     "prod": "eu-central-1"
   }
-}
+} 

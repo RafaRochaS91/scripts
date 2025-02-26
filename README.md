@@ -75,9 +75,22 @@ To install jq:
 - On Ubuntu/Debian: `sudo apt install jq`
 - Other systems: Visit https://stedolan.github.io/jq/download/
 
-#### Configuration
+#### Setup and Configuration
 
-The environment-to-region mappings are stored in `aws-config.json` in the following format:
+The script includes an interactive setup to create or modify the environment-to-region mappings:
+
+```bash
+./aws.sh setup
+```
+
+This command will:
+- Create a new config file if none exists
+- Allow you to update existing mappings
+- Add new environment mappings
+- Validate region formatting
+- Save the configuration to `aws-config.json`
+
+You can also manually edit the configuration file, which uses the following format:
 
 ```json
 {
@@ -89,7 +102,7 @@ The environment-to-region mappings are stored in `aws-config.json` in the follow
 }
 ```
 
-To add or modify environment mappings, simply edit this JSON file.
+The first time you run the script without a config file, it will automatically prompt you to run the setup.
 
 #### Commands
 
@@ -107,6 +120,11 @@ The script supports the following commands:
   ./aws.sh info      # Show mappings and current region setting
   ```
 
+- **`setup`**: Interactive setup to create or modify environment mappings
+  ```bash
+  ./aws.sh setup     # Run the interactive setup
+  ```
+
 - **`-h, --help`**: Display help message
   ```bash
   ./aws.sh -h        # Show help information
@@ -119,19 +137,15 @@ To make this script available globally as `aws-env`:
 
 ```bash
 sudo ln -s "$(pwd)/aws.sh" /usr/local/bin/aws-env
-sudo ln -s "$(pwd)/aws-config.json" "$(dirname "$(which aws-env)")/aws-config.json"
 ```
 
-Alternatively, if you prefer to keep the config file in its original location:
-
-```bash
-sudo ln -s "$(pwd)/aws.sh" /usr/local/bin/aws-env
-```
+The script will automatically find its configuration file regardless of where it's called from. If the config file doesn't exist, it will prompt you to run the setup.
 
 After installation, you can use it from anywhere:
 ```bash
 aws-env [environment]   # Set region for specified environment
 aws-env info            # Show mappings and current region
+aws-env setup           # Run interactive setup
 aws-env -h              # Show help information
 ```
 
